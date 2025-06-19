@@ -5,9 +5,9 @@ CREATE TABLE usuarios
 (
     ID_Usuario        INT AUTO_INCREMENT PRIMARY KEY,
     Cod_Usuario       VARCHAR(10) NOT NULL UNIQUE,
-    Nombre            VARCHAR(200) NOT NULL,
-    Apellido          VARCHAR(200) NOT NULL,
-    Correo            VARCHAR(150) NOT NULL UNIQUE,
+    nombre            VARCHAR(200) NOT NULL,
+    apellido          VARCHAR(200) NOT NULL,
+    correo            VARCHAR(150) NOT NULL UNIQUE,
     Clave             CHAR(60) NOT NULL,
     Fecha_De_Registro DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     INDEX idx_usuarios_correo (Correo)

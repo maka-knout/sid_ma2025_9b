@@ -1,79 +1,110 @@
 <?php
-/** @noinspection PhpUnusedLocalVariableInspection */
-/** @noinspection PhpRedundantOptionalArgumentInspection */
+require_once __DIR__ . '/../clases/conexion.php';
+require_once CLASS_PATH . 'auth.php';
 
-(session_status() === PHP_SESSION_NONE ? session_start() : ''); // Iniciar la sesión si no está iniciada
-require 'dirs.php'; // Archivo con rutas base
-require_once(CLASS_PATH . 'conexion.php'); // Clase Conexion
-require_once(CLASS_PATH . 'auth.php'); // Clase Auth
-require_once(SERVER_PATH . 'helpers.php'); // Funciones auxiliares
-require_once(SERVER_PATH . 'msg.php'); // Mensajes de alerta
-
-$url = $_SERVER['REQUEST_URI']; // URL actual
-
-// Función para iniciar sesión
-function logearUsuario($correo, $clave): bool
-{
-    $auth = obtenerAuth();
-    return $auth->logear_usuario($correo, $clave);
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-// Procesar formulario login
-if (isset($_POST['login_user'])) {
-    $correo = $_POST['correo'];
-    $clave = $_POST['clave'];
-    $login = logearUsuario($correo, $clave);
+function obtenerAuth(): Auth {
+    static $auth = null;
+    if ($auth === null) {
+        $conexion = new Conexion();
+        $auth = new Auth($conexion);
+    }
+    return $auth;
 }
 
-// Función para registrar usuario
-function registrarUsuario($nombre, $apellido, $correo, $clave): bool
-{
-    $auth = obtenerAuth();
-    return $auth->registrar_usuario($nombre, $apellido, $correo, $clave);
-}
-
-// Procesar formulario registro
-if (isset($_POST['registrar_usuario'])) {
-    $nombre = $_POST['nombre'];
-    $apellido = $_POST['apellido'];
-    $correo = $_POST['correo'];
-    $clave = $_POST['clave'];
-    $registro = registrarUsuario($nombre, $apellido, $correo, $clave);
-}
-
-// Verificar si está logeado
-function verificarLogin(): bool
-{
-    return isset($_SESSION['usuario_id']);
-}
-
-// Obtener datos de sesión
-function obtenerDatosUsuario(): array
-{
-    $id_usuario = $_SESSION['usuario_id'];
-    $nombre = $_SESSION['nombre'];
-    $apellido = $_SESSION['apellido'];
-    $correo = $_SESSION['correo'];
-    return [$id_usuario, $nombre, $apellido, $correo];
-}
-
-// Redirigir si ya está logeado
-function redirigirSiLogeado(): void
-{
-    if (verificarLogin()) {
-        header('Location: inicio.php');
-        exit();
+function redirigirSiLogeado(): void {
+    if (!empty($_SESSION['usuario_id'])) {
+        header('Location: dashboard.php'); // Cambia aquí si usas otra página tras login
+        exit;
     }
 }
 
-// Cerrar sesión
-function cerrarSesion(): bool
-{
-    session_unset();
-    session_destroy();
-    return true;
+function mostrar_mensaje_registro_extendido(): string {
+    if (!empty($_SESSION['register_message'])) {
+        $codigo = $_SESSION['register_message'];
+        unset($_SESSION['register_message']);
+        switch ($codigo) {
+            case 1:
+                return '<div class="alert alert-danger">Error en el registro. Inténtalo de nuevo.</div>';
+            case 2:
+                return '<div class="alert alert-warning">El correo ya está registrado.</div>';
+            case 3:
+                return '<div class="alert alert-success">Registro exitoso. Ahora puedes iniciar sesión.</div>';
+            case 4:
+                return '<div class="alert alert-warning">Las contraseñas no coinciden.</div>';
+            case 5:
+                return '<div class="alert alert-warning">La contraseña debe tener al menos 8 caracteres.</div>';
+            default:
+                return '';
+        }
+    }
+    return '';
 }
 
-if (isset($_POST['cerrar_sesion'])) {
-    $_SESSION['logout_message'] = cerrarSesion() ? 1 : 2;
+function mostrar_mensaje_login(): string {
+    if (!empty($_SESSION['login_message'])) {
+        $codigo = $_SESSION['login_message'];
+        unset($_SESSION['login_message']);
+        switch ($codigo) {
+            case 1:
+                return '<div class="alert alert-danger">Usuario no encontrado.</div>';
+            case 2:
+                return '<div class="alert alert-danger">Contraseña incorrecta.</div>';
+            case 3:
+                return '<div class="alert alert-success">Inicio de sesión exitoso.</div>';
+            default:
+                return '';
+        }
+    }
+    return '';
+}
+
+function procesar_login(): void {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_user'])) {
+        $correo = trim($_POST['correo']);
+        $clave = $_POST['clave'];
+
+        $auth = obtenerAuth();
+        if ($auth->logear_usuario($correo, $clave)) {
+            header('Location: dashboard.php'); // Cambia si usas otra página tras login
+            exit;
+        } else {
+            header('Location: iniciar-sesion.php');
+            exit;
+        }
+    }
+}
+
+function procesar_registro(): void {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar_usuario'])) {
+        $nombre = trim($_POST['nombre']);
+        $apellido = trim($_POST['apellido']);
+        $correo = trim($_POST['correo']);
+        $clave = $_POST['clave'];
+        $confirmar_clave = $_POST['confirmar_clave'];
+
+        if ($clave !== $confirmar_clave) {
+            $_SESSION['register_message'] = 4; // Contraseñas no coinciden
+            header('Location: registrarse.php');
+            exit;
+        }
+
+        if (strlen($clave) < 8) {
+            $_SESSION['register_message'] = 5; // Contraseña muy corta
+            header('Location: registrarse.php');
+            exit;
+        }
+
+        $auth = obtenerAuth();
+        if ($auth->registrar_usuario($nombre, $apellido, $correo, $clave)) {
+            header('Location: iniciar-sesion.php');
+            exit;
+        } else {
+            header('Location: registrarse.php');
+            exit;
+        }
+    }
 }

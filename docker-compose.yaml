@@ -1,39 +1,50 @@
+version: '3.8'
+
 services:
   web:
-    build: .
     container_name: eventos-web
+    build: .
     ports:
       - "8080:80"
     volumes:
       - ./public:/var/www/html
     depends_on:
-      - maria.11
+      - db
+    networks:
+      - eventos-net
 
-  maria.11:
-    image: mariadb:10.11
+  db:
     container_name: eventos-db
-    restart: always
+    image: mariadb:10.11
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: eventos
-    ports:
-      - "3306:3306"
+      MYSQL_USER: user1
+      MYSQL_PASSWORD: user1pa
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - eventos-net
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
     container_name: eventos-phpmyadmin
+    image: phpmyadmin/phpmyadmin
     restart: always
     ports:
       - "8081:80"
     environment:
-      PMA_HOST: maria.11
-      PMA_PORT: 3306
+      PMA_HOST: eventos-db
       MYSQL_ROOT_PASSWORD: root
     depends_on:
-      - maria.11
+      - db
+    networks:
+      - eventos-net
+
+networks:
+  eventos-net:
+    driver: bridge
 
 volumes:
   db_data:
-
